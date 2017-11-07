@@ -46,6 +46,7 @@ const (
 	ModeRecording Mode = iota
 	ModeReplaying
 	ModeDisabled
+	ModeReplayingOrRecording
 )
 
 // Recorder represents a type used to record and replay
@@ -71,6 +72,14 @@ func requestHandler(r *http.Request, c *cassette.Cassette, mode Mode, realTransp
 	// Return interaction from cassette if in replay mode
 	if mode == ModeReplaying {
 		return c.GetInteraction(r)
+	}
+
+	if mode == ModeReplayingOrRecording {
+		interaction, err := c.GetInteraction(r)
+
+		if interaction != nil {
+			return interaction, err
+		}
 	}
 
 	// Copy the original request, so we can read the form values
@@ -124,6 +133,9 @@ func requestHandler(r *http.Request, c *cassette.Cassette, mode Mode, realTransp
 			Code:    resp.StatusCode,
 		},
 	}
+	if mode == ModeReplayingOrRecording {
+		c.Interactions = []*cassette.Interaction{}
+	}
 	c.AddInteraction(interaction)
 
 	return interaction, nil
@@ -153,7 +165,11 @@ func NewAsMode(cassetteName string, mode Mode, realTransport http.RoundTripper) 
 			if err != nil {
 				return nil, err
 			}
-			mode = ModeReplaying
+			if mode == ModeReplaying {
+				mode = ModeReplaying
+			} else {
+				mode = ModeReplayingOrRecording
+			}
 		}
 	}
 
@@ -172,7 +188,7 @@ func NewAsMode(cassetteName string, mode Mode, realTransport http.RoundTripper) 
 
 // Stop is used to stop the recorder and save any recorded interactions
 func (r *Recorder) Stop() error {
-	if r.mode == ModeRecording {
+	if r.mode == ModeRecording || r.mode == ModeReplayingOrRecording {
 		if err := r.cassette.Save(); err != nil {
 			return err
 		}
