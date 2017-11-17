@@ -113,7 +113,8 @@ func requestHandler(r *http.Request, c *cassette.Cassette, mode Mode, realTransp
 	}
 
 	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
+	if err != nil && err.Error() != "unexpected EOF"{
+		fmt.Println(err)
 		return nil, err
 	}
 
